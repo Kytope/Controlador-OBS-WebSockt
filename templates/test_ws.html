@@ -1,0 +1,28 @@
+<!-- templates/test_ws.html -->
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Test WebSocket</title>
+</head>
+<body>
+    <h1>Test de WebSocket</h1>
+    <input type="text" id="messageInput" placeholder="Escribe un mensaje">
+    <button onclick="sendMessage()">Enviar</button>
+    <div id="messages"></div>
+
+    <script>
+        const ws = new WebSocket("ws://localhost:8000/ws");
+        const messagesDiv = document.getElementById("messages");
+        
+        ws.onmessage = function(event) {
+            messagesDiv.innerHTML += `<p>Recibido: ${event.data}</p>`;
+        };
+        
+        function sendMessage() {
+            const input = document.getElementById("messageInput");
+            ws.send(input.value);
+            input.value = "";
+        }
+    </script>
+</body>
+</html>

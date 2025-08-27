@@ -1,0 +1,350 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=1920, height=1080">
+    <title>OBS Output</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            width: 1920px;
+            height: 1080px;
+            background: transparent;
+            overflow: hidden;
+            position: relative;
+        }
+        
+        #output-container {
+            position: relative;
+            width: 100%;
+            height: 100%;
+        }
+        
+        .media-element {
+            position: absolute;
+            transition: opacity 0.3s ease;
+        }
+        
+        .media-element img,
+        .media-element video {
+            width: 100%;
+            height: 100%;
+            object-fit: contain;
+        }
+        
+        .text-content {
+            width: 100%;
+            height: 100%;
+            display: flex;
+            align-items: center;
+            box-sizing: border-box;
+            word-wrap: break-word;
+            overflow: hidden;
+        }
+        
+        /* Debug info (oculto en producción) */
+        .debug-info {
+            position: fixed;
+            top: 10px;
+            left: 10px;
+            background: rgba(0, 0, 0, 0.8);
+            color: white;
+            padding: 10px;
+            font-family: monospace;
+            font-size: 12px;
+            z-index: 10000;
+            display: none; /* Cambiar a 'block' para debug */
+        }
+    </style>
+</head>
+<body>
+    <div id="output-container"></div>
+    <div class="debug-info" id="debugInfo">
+        <div>Estado: <span id="debugStatus">Desconectado</span></div>
+        <div>Elementos: <span id="debugCount">0</span></div>
+    </div>
+
+    <script>
+        // Configuración
+        const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+        const WS_URL = `${protocol}//${window.location.host}/ws/overlay`;
+        const RECONNECT_DELAY = 2000;
+        
+        // Estado
+        let ws = null;
+        let activeMedia = {};
+        
+        // Elementos DOM
+        const container = document.getElementById('output-container');
+        const debugStatus = document.getElementById('debugStatus');
+        const debugCount = document.getElementById('debugCount');
+        
+        // Conexión WebSocket
+        function connect() {
+            console.log('Conectando a WebSocket...');
+            ws = new WebSocket(WS_URL);
+            
+            ws.onopen = () => {
+                console.log('OBS Output conectado');
+                debugStatus.textContent = 'Conectado';
+            };
+            
+            ws.onmessage = (event) => {
+                const data = JSON.parse(event.data);
+                console.log('Mensaje recibido:', data);
+                handleMessage(data);
+            };
+            
+            ws.onerror = (error) => {
+                console.error('Error WebSocket:', error);
+                debugStatus.textContent = 'Error';
+            };
+            
+            ws.onclose = () => {
+                console.log('Desconectado. Reconectando...');
+                debugStatus.textContent = 'Reconectando...';
+                setTimeout(connect, RECONNECT_DELAY);
+            };
+        }
+        
+        // Manejo de mensajes
+        function handleMessage(data) {
+            switch(data.action) {
+                case 'add_media':
+                    addMedia(data.media);
+                    break;
+                case 'remove_media':
+                    removeMedia(data.media_id);
+                    break;
+                case 'update_property':
+                    updateProperty(data.media_id, data.property, data.value);
+                    break;
+                case 'sync_state':
+                    syncState(data.state);
+                    break;
+                case 'clear_all':
+                    clearAll();
+                    break;
+            }
+            updateDebugInfo();
+        }
+        
+        // Crear elemento de texto
+        function createTextElement(container, media) {
+            const textDiv = document.createElement('div');
+            textDiv.className = 'text-content';
+            textDiv.textContent = media.text_content || 'Texto de ejemplo';
+            
+            // Aplicar estilos
+            const styles = {
+                fontFamily: media.font_family || 'Arial',
+                fontSize: `${media.font_size || 48}px`,
+                fontWeight: media.font_weight || 'normal',
+                fontStyle: media.font_style || 'normal',
+                textAlign: media.text_align || 'left',
+                color: media.text_color || '#ffffff',
+                justifyContent: media.text_align === 'center' ? 'center' : 
+                               media.text_align === 'right' ? 'flex-end' : 'flex-start',
+                padding: `${media.padding?.top || 10}px ${media.padding?.right || 10}px ${media.padding?.bottom || 10}px ${media.padding?.left || 10}px`
+            };
+            
+            // Sombra de texto
+            if (media.text_shadow) {
+                styles.textShadow = `${media.text_shadow_offset?.x || 1}px ${media.text_shadow_offset?.y || 1}px ${media.text_shadow_blur || 2}px ${media.text_shadow_color || '#000000'}`;
+            }
+            
+            // Color de fondo opcional
+            if (media.background_color) {
+                styles.backgroundColor = media.background_color;
+                styles.borderRadius = '4px';
+            }
+            
+            Object.assign(textDiv.style, styles);
+            container.appendChild(textDiv);
+        }
+
+        // Agregar media
+        function addMedia(media) {
+            console.log('Agregando media:', media);
+            
+            if (activeMedia[media.id]) {
+                updateMedia(media);
+                return;
+            }
+            
+            const div = document.createElement('div');
+            div.id = `media-${media.id}`;
+            div.className = 'media-element';
+            div.style.left = (media.position?.x || 100) + 'px';
+            div.style.top = (media.position?.y || 100) + 'px';
+            div.style.width = (media.size?.width || 200) + 'px';
+            div.style.height = (media.size?.height || 200) + 'px';
+            div.style.opacity = media.opacity || 1;
+            div.style.zIndex = media.z_index || 0;
+            
+            if (media.type === 'image') {
+                div.innerHTML = `<img src="${media.url}" alt="">`;
+            } else if (media.type === 'video') {
+                const video = document.createElement('video');
+                video.src = media.url;
+                video.autoplay = true;
+                video.loop = true;
+                video.muted = false;
+                video.volume = media.volume || 1.0;
+                div.appendChild(video);
+            } else if (media.type === 'text') {
+                createTextElement(div, media);
+            }
+            
+            container.appendChild(div);
+            activeMedia[media.id] = media;
+        }
+        
+        // Actualizar media existente
+        function updateMedia(media) {
+            const div = document.getElementById(`media-${media.id}`);
+            if (!div) return;
+            
+            div.style.left = (media.position?.x || 100) + 'px';
+            div.style.top = (media.position?.y || 100) + 'px';
+            div.style.width = (media.size?.width || 200) + 'px';
+            div.style.height = (media.size?.height || 200) + 'px';
+            div.style.opacity = media.opacity || 1;
+            div.style.zIndex = media.z_index || 0;
+            
+            // Actualizar video
+            const video = div.querySelector('video');
+            if (video && media.volume !== undefined) {
+                video.volume = media.volume;
+            }
+            
+            // Actualizar texto
+            if (media.type === 'text') {
+                const textContent = div.querySelector('.text-content');
+                if (textContent) {
+                    div.removeChild(textContent);
+                    createTextElement(div, media);
+                }
+            }
+            
+            activeMedia[media.id] = media;
+        }
+        
+        // Remover media
+        function removeMedia(mediaId) {
+            console.log('Removiendo media:', mediaId);
+            
+            const div = document.getElementById(`media-${mediaId}`);
+            if (div) {
+                div.style.opacity = '0';
+                setTimeout(() => {
+                    div.remove();
+                }, 300);
+                delete activeMedia[mediaId];
+            }
+        }
+        
+        // Actualizar propiedad
+        function updateProperty(mediaId, property, value) {
+            console.log('Actualizando propiedad:', mediaId, property, value);
+            
+            const div = document.getElementById(`media-${mediaId}`);
+            if (!div) return;
+            
+            // Actualizar datos locales
+            if (activeMedia[mediaId]) {
+                activeMedia[mediaId][property] = value;
+            }
+            
+            switch(property) {
+                case 'opacity':
+                    div.style.opacity = value;
+                    break;
+                case 'position':
+                    div.style.left = value.x + 'px';
+                    div.style.top = value.y + 'px';
+                    break;
+                case 'size':
+                    div.style.width = value.width + 'px';
+                    div.style.height = value.height + 'px';
+                    break;
+                case 'volume':
+                    const video = div.querySelector('video');
+                    if (video) video.volume = value;
+                    break;
+                case 'z_index':
+                    div.style.zIndex = value;
+                    break;
+                case 'visible':
+                    div.style.display = value ? 'block' : 'none';
+                    break;
+                // Propiedades de texto
+                case 'text_content':
+                case 'font_family':
+                case 'font_size':
+                case 'font_weight':
+                case 'font_style':
+                case 'text_align':
+                case 'text_color':
+                case 'text_shadow':
+                case 'text_shadow_color':
+                case 'text_shadow_blur':
+                case 'text_shadow_offset':
+                case 'background_color':
+                case 'padding':
+                    // Para propiedades de texto, recrear el elemento completo
+                    if (activeMedia[mediaId] && activeMedia[mediaId].type === 'text') {
+                        const textContent = div.querySelector('.text-content');
+                        if (textContent) {
+                            div.removeChild(textContent);
+                            createTextElement(div, activeMedia[mediaId]);
+                        }
+                    }
+                    break;
+            }
+        }
+        
+        // Sincronizar estado
+        function syncState(state) {
+            console.log('Sincronizando estado:', state);
+            clearAll();
+            
+            if (state.items) {
+                Object.values(state.items).forEach(media => {
+                    if (media.visible !== false) {
+                        addMedia(media);
+                    }
+                });
+            }
+        }
+        
+        // Limpiar todo
+        function clearAll() {
+            console.log('Limpiando todo');
+            container.innerHTML = '';
+            activeMedia = {};
+        }
+        
+        // Actualizar info de debug
+        function updateDebugInfo() {
+            debugCount.textContent = Object.keys(activeMedia).length;
+        }
+        
+        // Inicializar
+        connect();
+        
+        // Para debug en consola
+        window.debugOBS = {
+            getState: () => activeMedia,
+            getElements: () => container.children,
+            showDebug: () => document.querySelector('.debug-info').style.display = 'block',
+            hideDebug: () => document.querySelector('.debug-info').style.display = 'none'
+        };
+    </script>
+</body>
+</html>

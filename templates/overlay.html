@@ -1,0 +1,530 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>OBS Overlay Editor</title>
+    <link rel="stylesheet" href="/static/css/overlay-editor.css">
+</head>
+<body>
+    <div class="main-container">
+        <!-- Panel lateral -->
+        <aside class="sidebar">
+            <div class="sidebar-header">
+                <h1>🎬 OBS Overlay Editor</h1>
+                <div class="version-tag">v2.0</div>
+            </div>
+            
+            <div class="sidebar-content">
+                <!-- Upload -->
+                <div class="section upload-section">
+                    <div class="upload-area" id="uploadArea">
+                        <div class="upload-icon">📤</div>
+                        <h3>Arrastra archivos aquí</h3>
+                        <p class="upload-subtitle">o</p>
+                        <input type="file" id="fileInput" multiple accept="image/*,video/*" style="display: none;">
+                        <button class="btn btn-secondary" onclick="document.getElementById('fileInput').click()">
+                            📁 Seleccionar Archivos
+                        </button>
+                        <div class="upload-formats">
+                            <small>Formatos: JPG, PNG, GIF, MP4, WEBM</small>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Text Creation -->
+                <div class="section text-creation-section">
+                    <div class="section-header">
+                        <h2>
+                            <span class="section-icon">📝</span>
+                            Agregar Texto
+                        </h2>
+                    </div>
+                    <div class="text-creation-form">
+                        <div class="text-input-group">
+                            <input type="text" id="textContentInput" class="text-input" placeholder="Escribe tu texto aquí..." maxlength="200">
+                            <button class="btn btn-primary" onclick="createTextElement()">
+                                ➕ Agregar Texto
+                            </button>
+                        </div>
+                        <div class="text-quick-options">
+                            <button class="btn btn-sm" onclick="addQuickText('¡Gracias por seguir!')">📺 Seguir</button>
+                            <button class="btn btn-sm" onclick="addQuickText('¡Nuevo Sub!')">🎉 Sub</button>
+                            <button class="btn btn-sm" onclick="addQuickText('¡En Vivo!')">🔴 Live</button>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Media Library -->
+                <div class="section media-library-section">
+                    <div class="section-header">
+                        <h2>
+                            <span class="section-icon">📁</span>
+                            Biblioteca de Medios
+                        </h2>
+                        <div class="section-actions">
+                            <button class="btn btn-primary btn-sm" onclick="scanMedia()" title="Actualizar biblioteca">
+                                <span class="refresh-icon">🔄</span>
+                            </button>
+                        </div>
+                    </div>
+                    <div class="media-grid-container">
+                        <div id="mediaGrid" class="media-grid"></div>
+                        <div class="media-grid-empty" id="mediaGridEmpty" style="display: none;">
+                            <div class="empty-icon">📁</div>
+                            <p>No hay medios disponibles</p>
+                            <small>Sube archivos para comenzar</small>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Properties Panel -->
+                <div class="section properties-section" id="propertiesPanel" style="display: none;">
+                    <div class="section-header">
+                        <h2>
+                            <span class="section-icon">⚙️</span>
+                            Propiedades
+                        </h2>
+                        <div class="selected-info" id="selectedInfo">
+                            <span class="selected-name">Elemento seleccionado</span>
+                        </div>
+                    </div>
+                    
+                    <div class="properties-grid">
+                        <!-- Opacity Control -->
+                        <div class="property-group">
+                            <label class="property-label">
+                                <span class="property-icon">🔆</span>
+                                Opacidad
+                            </label>
+                            <div class="property-row">
+                                <input type="range" id="opacityControl" class="property-input property-slider" min="0" max="100" value="100">
+                                <span class="property-value" id="opacityValue">100%</span>
+                            </div>
+                        </div>
+                        
+                        <!-- Volume Control (for videos) -->
+                        <div class="property-group" id="volumeGroup" style="display: none;">
+                            <label class="property-label">
+                                <span class="property-icon">🔊</span>
+                                Volumen
+                            </label>
+                            <div class="property-row">
+                                <input type="range" id="volumeControl" class="property-input property-slider" min="0" max="100" value="100">
+                                <span class="property-value" id="volumeValue">100%</span>
+                            </div>
+                        </div>
+                        
+                        <!-- Position Controls -->
+                        <div class="property-group">
+                            <label class="property-label">
+                                <span class="property-icon">📍</span>
+                                Posición
+                            </label>
+                            <div class="property-row property-inputs">
+                                <div class="input-group">
+                                    <label class="input-label">X</label>
+                                    <input type="number" id="posX" class="property-input property-number" placeholder="0">
+                                </div>
+                                <div class="input-group">
+                                    <label class="input-label">Y</label>
+                                    <input type="number" id="posY" class="property-input property-number" placeholder="0">
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Size Controls -->
+                        <div class="property-group">
+                            <label class="property-label">
+                                <span class="property-icon">📏</span>
+                                Tamaño
+                            </label>
+                            <div class="property-row property-inputs">
+                                <div class="input-group">
+                                    <label class="input-label">Ancho</label>
+                                    <input type="number" id="sizeWidth" class="property-input property-number" placeholder="200">
+                                </div>
+                                <div class="input-group">
+                                    <label class="input-label">Alto</label>
+                                    <input type="number" id="sizeHeight" class="property-input property-number" placeholder="200">
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Text Properties (only for text elements) -->
+                        <div class="property-group text-properties" id="textProperties" style="display: none;">
+                            <label class="property-label">
+                                <span class="property-icon">📝</span>
+                                Contenido
+                            </label>
+                            <div class="property-row">
+                                <input type="text" id="textContent" class="property-input" placeholder="Texto...">
+                            </div>
+                        </div>
+                        
+                        <div class="property-group text-properties" id="fontProperties" style="display: none;">
+                            <label class="property-label">
+                                <span class="property-icon">🔤</span>
+                                Fuente
+                            </label>
+                            <div class="property-row property-inputs">
+                                <div class="input-group">
+                                    <label class="input-label">Familia</label>
+                                    <select id="fontFamily" class="property-input property-select">
+                                        <option value="Arial">Arial</option>
+                                        <option value="Helvetica">Helvetica</option>
+                                        <option value="Times New Roman">Times New Roman</option>
+                                        <option value="Georgia">Georgia</option>
+                                        <option value="Verdana">Verdana</option>
+                                        <option value="Comic Sans MS">Comic Sans MS</option>
+                                        <option value="Impact">Impact</option>
+                                        <option value="Trebuchet MS">Trebuchet MS</option>
+                                    </select>
+                                </div>
+                                <div class="input-group">
+                                    <label class="input-label">Tamaño</label>
+                                    <input type="number" id="fontSize" class="property-input property-number" placeholder="48" min="8" max="200">
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="property-group text-properties" id="textStyleProperties" style="display: none;">
+                            <label class="property-label">
+                                <span class="property-icon">✨</span>
+                                Estilo
+                            </label>
+                            <div class="property-row property-inputs">
+                                <div class="input-group">
+                                    <label class="input-label">Color</label>
+                                    <input type="color" id="textColor" class="property-input property-color" value="#ffffff">
+                                </div>
+                                <div class="input-group">
+                                    <label class="input-label">Alineación</label>
+                                    <select id="textAlign" class="property-input property-select">
+                                        <option value="left">Izquierda</option>
+                                        <option value="center">Centro</option>
+                                        <option value="right">Derecha</option>
+                                    </select>
+                                </div>
+                            </div>
+                            <div class="property-row property-inputs">
+                                <div class="input-group">
+                                    <label class="input-label">
+                                        <input type="checkbox" id="fontBold"> Negrita
+                                    </label>
+                                </div>
+                                <div class="input-group">
+                                    <label class="input-label">
+                                        <input type="checkbox" id="fontItalic"> Cursiva
+                                    </label>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="property-group text-properties" id="textShadowProperties" style="display: none;">
+                            <label class="property-label">
+                                <span class="property-icon">🌫️</span>
+                                Sombra
+                            </label>
+                            <div class="property-row">
+                                <label class="input-label">
+                                    <input type="checkbox" id="textShadowEnabled"> Habilitar sombra
+                                </label>
+                            </div>
+                            <div class="property-row property-inputs" id="shadowControls" style="display: none;">
+                                <div class="input-group">
+                                    <label class="input-label">Color</label>
+                                    <input type="color" id="textShadowColor" class="property-input property-color" value="#000000">
+                                </div>
+                                <div class="input-group">
+                                    <label class="input-label">Difuminado</label>
+                                    <input type="number" id="textShadowBlur" class="property-input property-number" value="2" min="0" max="20">
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="property-actions">
+                        <button class="btn btn-danger btn-block" onclick="removeSelected()">
+                            🗑️ Eliminar Elemento
+                        </button>
+                    </div>
+                </div>
+                
+                <!-- Active Elements -->
+                <div class="section elements-section">
+                    <div class="section-header">
+                        <h2>
+                            <span class="section-icon">🎯</span>
+                            Elementos Activos
+                            <span class="element-count" id="elementCount">0</span>
+                        </h2>
+                        <div class="section-actions">
+                            <button class="btn btn-danger btn-sm" onclick="clearAll()" title="Limpiar todo">
+                                🗑️
+                            </button>
+                        </div>
+                    </div>
+                    <div class="elements-container">
+                        <div id="elementList" class="element-list"></div>
+                        <div class="element-list-empty" id="elementListEmpty">
+                            <div class="empty-icon">🎯</div>
+                            <p>No hay elementos en el overlay</p>
+                            <small>Arrastra medios al canvas para comenzar</small>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </aside>
+        
+        <!-- Toggle Sidebar Button -->
+        <button class="sidebar-toggle" id="sidebarToggle" title="Ocultar/Mostrar Panel">
+            <span class="toggle-icon">⮞</span>
+        </button>
+        
+        <!-- Editor principal -->
+        <main class="editor-container">
+            <!-- Connection Status -->
+            <div class="connection-status">
+                <div class="status-indicator" id="statusIndicator"></div>
+                <span id="statusText">Conectando...</span>
+                <div class="connection-info">
+                    <small id="connectionDetails">Iniciando conexión</small>
+                </div>
+            </div>
+            
+            <!-- Canvas Area -->
+            <div class="canvas-viewport">
+                <div class="workspace-container">
+                    <div id="workspace">
+                        <div id="overlay-canvas">
+                            <div class="canvas-grid"></div>
+                            <div class="canvas-border"></div>
+                            <div class="canvas-drop-zone" id="canvasDropZone" style="display: none;">
+                                <div class="drop-zone-content">
+                                    <div class="drop-zone-icon">⬇️</div>
+                                    <p>Suelta aquí para agregar al overlay</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Canvas Info -->
+            <div class="canvas-info">
+                <div class="canvas-stats">
+                    <span class="stat-item">
+                        <strong>Canvas:</strong> 1920×1080
+                    </span>
+                    <span class="stat-separator">•</span>
+                    <span class="stat-item">
+                        <strong>Escala:</strong> 60%
+                    </span>
+                    <span class="stat-separator">•</span>
+                    <span class="stat-item">
+                        <strong>Elementos:</strong> <span id="canvasElementCount">0</span>
+                    </span>
+                    <span class="stat-separator">•</span>
+                    <span class="stat-item canvas-area-indicator">
+                        ■ Área visible en OBS
+                    </span>
+                </div>
+            </div>
+
+            <!-- Keyboard Shortcuts Info -->
+            <div class="shortcuts-info" id="shortcutsInfo" style="display: none;">
+                <div class="shortcuts-content">
+                    <h3>Atajos de Teclado</h3>
+                    <div class="shortcuts-grid">
+                        <div class="shortcut-item">
+                            <kbd>Del</kbd>
+                            <span>Eliminar elemento</span>
+                        </div>
+                        <div class="shortcut-item">
+                            <kbd>↑↓←→</kbd>
+                            <span>Mover elemento</span>
+                        </div>
+                        <div class="shortcut-item">
+                            <kbd>Shift + ↑↓←→</kbd>
+                            <span>Mover rápido</span>
+                        </div>
+                        <div class="shortcut-item">
+                            <kbd>Esc</kbd>
+                            <span>Deseleccionar</span>
+                        </div>
+                        <div class="shortcut-item">
+                            <kbd>F2</kbd>
+                            <span>Ocultar/Mostrar panel</span>
+                        </div>
+                        <div class="shortcut-item">
+                            <kbd>F1</kbd>
+                            <span>Ayuda</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+    
+    <!-- Upload Progress -->
+    <div class="upload-progress" id="uploadProgress" style="display: none;">
+        <div class="progress-header">
+            <h4>Subiendo archivos...</h4>
+            <button class="progress-close" onclick="document.getElementById('uploadProgress').style.display='none'">&times;</button>
+        </div>
+        <div class="progress-bar">
+            <div class="progress-fill"></div>
+        </div>
+        <div class="progress-text">Preparando...</div>
+    </div>
+
+    <!-- Toast Notifications Container -->
+    <div class="toast-container" id="toastContainer"></div>
+    
+    <!-- Scripts -->
+    <script type="module" src="/static/js/overlay-editor-main.js"></script>
+    
+    <!-- Additional functionality -->
+    <script>
+        // Global keyboard shortcuts
+        document.addEventListener('keydown', (e) => {
+            // Toggle shortcuts info
+            if (e.key === 'F1' || (e.ctrlKey && e.key === '?')) {
+                e.preventDefault();
+                const shortcuts = document.getElementById('shortcutsInfo');
+                shortcuts.style.display = shortcuts.style.display === 'none' ? 'block' : 'none';
+            }
+            
+            // Toggle sidebar with F2 or Ctrl+B
+            if (e.key === 'F2' || (e.ctrlKey && e.key === 'b')) {
+                e.preventDefault();
+                toggleSidebar();
+            }
+            
+            // Deselect all with Escape
+            if (e.key === 'Escape') {
+                if (window.overlayEditor && window.overlayEditor.canvasManager) {
+                    window.overlayEditor.canvasManager.deselectAll();
+                }
+            }
+        });
+        
+        // Sidebar toggle functionality
+        let sidebarVisible = true;
+        
+        function toggleSidebar() {
+            const sidebar = document.querySelector('.sidebar');
+            const container = document.querySelector('.main-container');
+            const toggleBtn = document.getElementById('sidebarToggle');
+            const toggleIcon = toggleBtn.querySelector('.toggle-icon');
+            
+            sidebarVisible = !sidebarVisible;
+            
+            if (sidebarVisible) {
+                container.classList.remove('sidebar-hidden');
+                toggleIcon.textContent = '⮞';
+                toggleBtn.title = 'Ocultar Panel (F2)';
+            } else {
+                container.classList.add('sidebar-hidden');
+                toggleIcon.textContent = '⮜';
+                toggleBtn.title = 'Mostrar Panel (F2)';
+            }
+        }
+        
+        // Initialize sidebar toggle
+        document.getElementById('sidebarToggle')?.addEventListener('click', toggleSidebar);
+        
+        // Enhanced ripple effect for buttons
+        document.addEventListener('click', function(e) {
+            const button = e.target.closest('.btn');
+            if (button && !button.disabled) {
+                const ripple = document.createElement('span');
+                const rect = button.getBoundingClientRect();
+                const size = Math.max(rect.width, rect.height);
+                const x = e.clientX - rect.left - size / 2;
+                const y = e.clientY - rect.top - size / 2;
+                
+                ripple.style.cssText = `
+                    position: absolute;
+                    width: ${size}px;
+                    height: ${size}px;
+                    left: ${x}px;
+                    top: ${y}px;
+                    background: rgba(255, 255, 255, 0.3);
+                    border-radius: 50%;
+                    transform: scale(0);
+                    animation: ripple 0.6s linear;
+                    pointer-events: none;
+                    z-index: 1;
+                `;
+                
+                button.appendChild(ripple);
+                
+                setTimeout(() => ripple.remove(), 600);
+            }
+        });
+        
+        // Add ripple animation CSS
+        const rippleStyle = document.createElement('style');
+        rippleStyle.textContent = `
+            @keyframes ripple {
+                to {
+                    transform: scale(2);
+                    opacity: 0;
+                }
+            }
+            .btn {
+                position: relative;
+                overflow: hidden;
+            }
+        `;
+        document.head.appendChild(rippleStyle);
+        
+        // Animate refresh icon on hover
+        document.querySelector('.refresh-icon')?.addEventListener('mouseenter', function() {
+            this.style.transform = 'rotate(180deg)';
+        });
+        
+        document.querySelector('.refresh-icon')?.addEventListener('mouseleave', function() {
+            this.style.transform = 'rotate(0deg)';
+        });
+        
+        // Text creation functions
+        window.createTextElement = function() {
+            const textInput = document.getElementById('textContentInput');
+            const text = textInput.value.trim();
+            
+            if (!text) {
+                alert('Por favor, ingresa un texto');
+                return;
+            }
+            
+            // This will be handled by the main script
+            if (window.overlayEditor) {
+                window.overlayEditor.createTextFromInput(text);
+                textInput.value = '';
+            }
+        };
+        
+        window.addQuickText = function(text) {
+            if (window.overlayEditor) {
+                window.overlayEditor.createTextFromInput(text);
+            }
+        };
+        
+        // Enter key support for text input
+        document.getElementById('textContentInput')?.addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                createTextElement();
+            }
+        });
+        
+        // Text shadow control
+        document.getElementById('textShadowEnabled')?.addEventListener('change', function() {
+            const shadowControls = document.getElementById('shadowControls');
+            shadowControls.style.display = this.checked ? 'flex' : 'none';
+        });
+    </script>
+</body>
+</html>
